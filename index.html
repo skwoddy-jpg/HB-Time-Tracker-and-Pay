@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HB Clock In</title>
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.1);
+            --glass-thick: rgba(255, 255, 255, 0.18);
+            --glass-stroke: rgba(255, 255, 255, 0.2);
+            --accent: #818cf8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-main: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.6);
+            --bg-mesh: radial-gradient(at 0% 0%, #1e1b4b 0px, transparent 50%),
+                        radial-gradient(at 100% 100%, #4338ca 0px, transparent 50%), #0f172a;
+        }
+
+        body.light-mode {
+            --glass: rgba(255, 255, 255, 0.7);
+            --glass-thick: rgba(255, 255, 255, 0.85);
+            --glass-stroke: rgba(0, 0, 0, 0.1);
+            --accent: #4f46e5;
+            --text-main: #1e293b;
+            --text-dim: #64748b;
+            --bg-mesh: radial-gradient(at 0% 0%, #f1f5f9 0px, transparent 50%),
+                        radial-gradient(at 100% 100%, #e0e7ff 0px, transparent 50%), #f8fafc;
+        }
+
+        body {
+            margin: 0; padding: 10px; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+            color: var(--text-main); background: var(--bg-mesh);
+            background-attachment: fixed; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+            transition: background 0.5s ease, color 0.3s ease;
+        }
+
+        .top-nav {
+            width: 100%; max-width: 500px; display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 10px; box-sizing: border-box; margin-bottom: 5px;
+        }
+
+        .nav-actions { display: flex; gap: 8px; }
+
+        .nav-btn {
+            background: var(--glass); border: 1px solid var(--glass-stroke); border-radius: 12px;
+            color: var(--text-main); padding: 8px 12px; cursor: pointer; backdrop-filter: blur(10px);
+            font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px;
+        }
+
+        .bento-container { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 500px; }
+        
+        .glass-card { 
+            background: var(--glass); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-stroke); border-radius: 30px; padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15); transition: all 0.4s ease;
+        }
+        .full-width { grid-column: span 2; }
+
+        @keyframes pulseAlert {
+            0% { color: var(--warning); text-shadow: 0 0 10px var(--warning); }
+            50% { color: var(--danger); text-shadow: 0 0 25px var(--danger); }
+            100% { color: var(--warning); text-shadow: 0 0 10px var(--warning); }
+        }
+
+        .status-pill { 
+            display: inline-block; padding: 6px 14px; border-radius: 20px; 
+            font-size: 0.7rem; font-weight: 900; letter-spacing: 1.5px; margin-bottom: 15px; color: white;
+        }
+
+        .timer-label { font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; font-weight: 800; color: var(--text-dim); }
+        .timer-val { font-size: 3.5rem; font-weight: 800; margin: 10px 0; font-family: 'SF Mono', monospace; letter-spacing: -2px; }
+
+        #breakDisplayCont { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--glass-stroke); }
+        .break-timer { font-size: 1.8rem; font-weight: 800; font-family: 'SF Mono', monospace; animation: pulseAlert 2s infinite ease-in-out; }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(15px);
+            display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+
+        .modal {
+            background: var(--glass-thick); border: 1px solid var(--glass-stroke);
+            border-radius: 32px; width: 90%; max-width: 450px; max-height: 80vh;
+            padding: 30px; box-sizing: border-box; overflow-y: auto; position: relative; color: var(--text-main);
+        }
+
+        .close-btn { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-dim); }
+
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+        button { padding: 18px; border: none; border-radius: 20px; font-weight: 800; cursor: pointer; color: #fff; text-transform: uppercase; font-size: 0.85rem; transition: 0.2s; }
+        button:active { transform: scale(0.96); opacity: 0.9; }
+        .btn-in { background: var(--success); grid-column: span 2; }
+        .btn-pause { background: var(--warning); }
+        .btn-out { background: var(--danger); }
+
+        input {
+            background: var(--glass); border: 1px solid var(--glass-stroke);
+            color: var(--text-main); border-radius: 12px; padding: 12px; width: 100%; box-sizing: border-box;
+            font-size: 0.95rem; margin-top: 6px; font-weight: 600; text-align: center;
+        }
+
+        .log-item { background: var(--glass); padding: 18px; border-radius: 24px; margin-top: 12px; border: 1px solid var(--glass-stroke); }
+        .quick-edit-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .quick-edit-col { display: flex; flex-direction: column; align-items: center; }
+
+        .btn-accent { background: var(--accent); width: 100%; margin-top: 15px; }
+        .btn-email { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); margin-top: 10px; width: 100%; }
+        .version-tag { font-size: 0.6rem; opacity: 0.3; text-align: center; margin-top: 40px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-main); width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="top-nav">
+    <h1 style="font-size: 1.1rem; font-weight: 900; margin: 0; letter-spacing: -0.5px;">HB PRO</h1>
+    <div class="nav-actions">
+        <button class="nav-btn" onclick="toggleTheme()" id="themeBtn">
+            <span id="themeLabel">THEME</span>
+        </button>
+        <button class="nav-btn" onclick="openModal()">HELP</button>
+    </div>
+</div>
+
+<div class="bento-container">
+    <!-- TIMER CARD -->
+    <div class="glass-card full-width">
+        <div id="statusPill" class="status-pill" style="background: rgba(255,255,255,0.1);">STANDBY</div>
+        <div class="timer-label">Session Duration</div>
+        <div class="timer-val" id="display">00:00:00</div>
+        
+        <div id="breakDisplayCont" style="display:none;">
+            <div class="timer-label">Break Elapsed</div>
+            <div class="break-timer" id="breakDisplay">00:00:00</div>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" class="btn-in" onclick="startClock()">Clock In</button>
+            <button id="breakBtn" class="btn-pause" onclick="toggleBreak()" style="display:none;">Break</button>
+            <button id="stopBtn" class="btn-out" onclick="stopClock()" style="display:none;">Clock Out</button>
+        </div>
+    </div>
+
+    <!-- QUICK EDIT -->
+    <div class="glass-card full-width" id="quickEditPane" style="display:none;">
+        <div class="timer-label" style="color:var(--accent); text-align: center; display: block; width: 100%;">Adjust Last Entry</div>
+        <div class="quick-edit-grid">
+            <div class="quick-edit-col"><label class="timer-label" style="font-size:0.55rem">Start</label><input type="time" id="editLastStart" onchange="updateLastShift()"></div>
+            <div class="quick-edit-col"><label class="timer-label" style="font-size:0.55rem">End</label><input type="time" id="editLastEnd" onchange="updateLastShift()"></div>
+            <div class="quick-edit-col"><label class="timer-label" style="font-size:0.55rem">Break (m)</label><input type="number" id="editLastBreak" onchange="updateLastShift()"></div>
+        </div>
+    </div>
+
+    <!-- STATS BENTO -->
+    <div class="glass-card"><div class="timer-label">Pay Period</div><div id="periodPay" style="font-size:1.6rem; font-weight:800; color:var(--success);">£0.00</div></div>
+    <div class="glass-card"><div class="timer-label">Total Hours</div><div id="periodHrs" style="font-size:1.6rem; font-weight:800;">0.00</div></div>
+
+    <!-- CONFIGURATION BENTO -->
+    <div class="glass-card full-width">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div><label class="timer-label">Rate (£)</label><input type="number" id="rate" value="12.00" step="0.01" onchange="saveCfg()"></div>
+            <div><label class="timer-label">Period Name</label><input type="text" id="pName" placeholder="e.g. January"></div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top:15px;">
+            <div><label class="timer-label">From</label><input type="date" id="startD" onchange="saveCfg()"></div>
+            <div><label class="timer-label">To</label><input type="date" id="endD" onchange="saveCfg()"></div>
+        </div>
+        <button onclick="archiveCurrent()" class="btn-accent">Archive Period</button>
+        <button onclick="exportToEmail()" class="btn-email">Email Timesheet</button>
+    </div>
+
+    <!-- HISTORY LOG -->
+    <div id="logList" class="full-width"></div>
+    <div class="version-tag">HB Clock In — v1.5</div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="overlay" id="helpModal" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+        <span class="close-btn" onclick="closeModal()">×</span>
+        <div id="readmeOutput"><h2>Documentation</h2><p>Loading...</p></div>
+    </div>
+</div>
+
+<script>
+    let startTime, timerInterval, breakInterval, pausedMs = 0, isPaused = false, pauseStart;
+    let shifts = JSON.parse(localStorage.getItem('hb_sh_v15')) || [];
+    let cfg = JSON.parse(localStorage.getItem('hb_cf_v15')) || { rate: "12.00", s: new Date().toISOString().split('T')[0], e: new Date().toISOString().split('T')[0], theme: 'dark' };
+
+    // Set form fields
+    document.getElementById('rate').value = cfg.rate;
+    document.getElementById('startD').value = cfg.s;
+    document.getElementById('endD').value = cfg.e;
+    if (cfg.theme === 'light') applyTheme('light');
+
+    function toggleTheme() {
+        const current = document.body.classList.contains('light-mode') ? 'dark' : 'light';
+        applyTheme(current);
+        cfg.theme = current;
+        localStorage.setItem('hb_cf_v15', JSON.stringify(cfg));
+    }
+
+    function applyTheme(t) {
+        if (t === 'light') document.body.classList.add('light-mode');
+        else document.body.classList.remove('light-mode');
+    }
+
+    async function fetchReadme() {
+        try {
+            const r = await fetch('README.md');
+            if (!r.ok) throw new Error();
+            const text = await r.text();
+            document.getElementById('readmeOutput').innerHTML = text.replace(/^# (.*$)/gim, '<h2>$1</h2>').replace(/^## (.*$)/gim, '<h3>$1</h3>').replace(/^\- (.*$)/gim, '<li>$1</li>').replace(/\n/g, '<br>');
+        } catch (e) { document.getElementById('readmeOutput').innerHTML = "<h2>HB Clock In Guide</h2><p>Check the README.md in your GitHub repo.</p>"; }
+    }
+
+    function openModal() { document.getElementById('helpModal').style.display = 'flex'; fetchReadme(); }
+    function closeModal() { document.getElementById('helpModal').style.display = 'none'; }
+
+    function saveCfg() {
+        cfg.rate = document.getElementById('rate').value;
+        cfg.s = document.getElementById('startD').value;
+        cfg.e = document.getElementById('endD').value;
+        localStorage.setItem('hb_cf_v15', JSON.stringify(cfg));
+        updateView();
+    }
+
+    function startClock() {
+        startTime = new Date();
+        pausedMs = 0; isPaused = false;
+        timerInterval = setInterval(updateMain, 1000);
+        updateStatus("WORKING", "var(--success)");
+        toggleBtns(true);
+    }
+
+    function toggleBreak() {
+        if (!isPaused) {
+            pauseStart = new Date(); isPaused = true;
+            clearInterval(timerInterval);
+            breakInterval = setInterval(updateBreak, 1000);
+            updateStatus("ON BREAK", "var(--warning)");
+            document.getElementById('breakDisplayCont').style.display = 'block';
+            document.getElementById('breakBtn').textContent = "Resume";
+        } else {
+            pausedMs += (new Date() - pauseStart); isPaused = false;
+            clearInterval(breakInterval);
+            timerInterval = setInterval(updateMain, 1000);
+            updateStatus("WORKING", "var(--success)");
+            document.getElementById('breakDisplayCont').style.display = 'none';
+            document.getElementById('breakBtn').textContent = "Break";
+        }
+    }
+
+    function stopClock() {
+        if(!confirm("End shift?")) return;
+        clearInterval(timerInterval); clearInterval(breakInterval);
+        const end = new Date();
+        let b = pausedMs + (isPaused ? (new Date() - pauseStart) : 0);
+        shifts.push({ st: startTime.toISOString(), en: end.toISOString(), br: b });
+        localStorage.setItem('hb_sh_v15', JSON.stringify(shifts));
+        resetUI(); updateView();
+    }
+
+    function resetUI() { toggleBtns(false); updateStatus("STANDBY", "rgba(255,255,255,0.1)"); document.getElementById('display').textContent = "00:00:00"; document.getElementById('breakDisplayCont').style.display = 'none'; pausedMs = 0; isPaused = false; }
+    
+    function updateMain() { 
+        let d = new Date() - startTime - pausedMs; 
+        document.getElementById('display').textContent = formatTime(d); 
+    }
+    
+    function updateBreak() { 
+        let d = new Date() - pauseStart; 
+        document.getElementById('breakDisplay').textContent = formatTime(d); 
+    }
+    
+    function formatTime(ms) {
+        const sMs = Math.max(0, ms);
+        const hh = Math.floor(sMs / 3600000);
+        const mm = Math.floor((sMs % 3600000) / 60000);
+        const ss = Math.floor((sMs % 60000) / 1000);
+        return `${hh.toString().padStart(2,'0')}:${mm.toString().padStart(2,'0')}:${ss.toString().padStart(2,'0')}`;
+    }
+
+    function updateStatus(t, c) { const p = document.getElementById('statusPill'); p.textContent = t; p.style.background = c; }
+    
+    function toggleBtns(r) {
+        document.getElementById('startBtn').style.display = r ? 'none' : 'block';
+        document.getElementById('breakBtn').style.display = r ? 'inline-block' : 'none';
+        document.getElementById('stopBtn').style.display = r ? 'inline-block' : 'none';
+    }
+
+    function updateView() {
+        const list = document.getElementById('logList'); list.innerHTML = '';
+        let tH = 0;
+        const filt = shifts.filter(s => { const d = new Date(s.st); return d >= new Date(cfg.s) && d <= new Date(cfg.e + 'T23:59:59'); }).sort((a,b) => new Date(b.st) - new Date(a.st));
+
+        if (filt.length > 0) {
+            const last = filt[0];
+            document.getElementById('quickEditPane').style.display = 'block';
+            document.getElementById('editLastStart').value = new Date(last.st).toTimeString().slice(0,5);
+            document.getElementById('editLastEnd').value = new Date(last.en).toTimeString().slice(0,5);
+            document.getElementById('editLastBreak').value = Math.round(last.br / 60000);
+        } else {
+            document.getElementById('quickEditPane').style.display = 'none';
+        }
+
+        filt.forEach(s => {
+            const h = (new Date(s.en) - new Date(s.st) - (s.br || 0)) / 3600000;
+            tH += h;
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            item.innerHTML = `<div style="display:flex; justify-content:space-between;"><strong>${new Date(s.st).toLocaleDateString('en-GB')}</strong> <span style="color:var(--success); font-weight:800;">£${(h*cfg.rate).toFixed(2)}</span></div><div style="font-size:0.75rem; opacity:0.6; margin-top:4px;">${h.toFixed(2)} hrs | ${Math.round(s.br/60000)}m break</div>`;
+            list.appendChild(item);
+        });
+        document.getElementById('periodPay').textContent = `£${(tH * cfg.rate).toFixed(2)}`;
+        document.getElementById('periodHrs').textContent = tH.toFixed(2);
+    }
+
+    function updateLastShift() {
+        const filt = shifts.filter(s => { const d = new Date(s.st); return d >= new Date(cfg.s) && d <= new Date(cfg.e + 'T23:59:59'); }).sort((a,b) => new Date(b.st) - new Date(a.st));
+        const last = filt[0];
+        const [sh, sm] = document.getElementById('editLastStart').value.split(':');
+        const [eh, em] = document.getElementById('editLastEnd').value.split(':');
+        const st = new Date(last.st), en = new Date(last.en);
+        st.setHours(sh, sm); en.setHours(eh, em);
+        last.st = st.toISOString(); last.en = en.toISOString();
+        last.br = document.getElementById('editLastBreak').value * 60000;
+        localStorage.setItem('hb_sh_v15', JSON.stringify(shifts));
+        updateView();
+    }
+
+    function archiveCurrent() {
+        alert("Feature Coming Soon: This will group your current shifts into a permanent archive card.");
+    }
+
+    function exportToEmail() {
+        const pName = document.getElementById('pName').value || "Timesheet";
+        const totalPay = document.getElementById('periodPay').textContent, totalHrs = document.getElementById('periodHrs').textContent;
+        let body = `Timesheet: ${pName}\nTotal Hours: ${totalHrs}\nTotal Pay: ${totalPay}\n\nBreakdown:\n`;
+        const filt = shifts.filter(s => { const d = new Date(s.st); return d >= new Date(cfg.s) && d <= new Date(cfg.e + 'T23:59:59'); }).sort((a,b) => new Date(a.st) - new Date(b.st));
+        filt.forEach(s => { const h = (new Date(s.en) - new Date(s.st) - (s.br || 0)) / 3600000; body += `${new Date(s.st).toLocaleDateString('en-GB')}: ${h.toFixed(2)} hrs (£${(h*cfg.rate).toFixed(2)})\n`; });
+        window.location.href = `mailto:?subject=${encodeURIComponent(pName)}&body=${encodeURIComponent(body)}`;
+    }
+    updateView();
+</script>
+</body>
+</html>
+
