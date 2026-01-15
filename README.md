@@ -1,29 +1,30 @@
-(🕒 HB Clock In — Pro Edition
-A high-performance, mobile-first time tracking utility designed for speed, precision, and privacy. Built with a modern Glassmorphism aesthetic and Bento Grid architecture.
-🚀 Key Features
-• Dual-Timer System: Real-time tracking of both active work sessions and break durations with visual status indicators.
-• Quick-Adjust Dashboard: Instantly modify the start, end, or break times of your most recent shift without digging through logs.
-• Bento Grid Analytics: High-level overview of current period earnings, net hours, and shift counts.
-• Ultra-Modern UI: Frosted glass panels, dynamic mesh gradients, and pulsing "Neon" alerts for break states.
-• Professional Export: Generate formatted timesheet reports and launch them directly into your native email client.
-• Privacy First: Zero server-side tracking. All shift data and pay rates are stored locally on your device's secure browser memory.
-📖 How to Use
-1. Daily Tracking
-• Clock In: Tap the green button to start your work session.
-• Taking a Break: Tap the amber button. A secondary pulsing timer will track your break duration.
-• Resume Work: Tap the button again to freeze the break timer and return to active work.
-• Clock Out: Tap the red button to finalize the shift and save it to your history.
-2. Management & Edits
-• Quick Edit: If you made a mistake on your current shift, use the "Quick Adjust" panel immediately after clocking out.
-• Archives: Use the "Archive Period" feature to group your shifts by month or project name.
-• Reporting: Set your pay period dates in the settings card and tap "Email Timesheet" to send your data to management.
-🛠 Technical Details
-• Hosting: Securely served via GitHub Pages.
-• Storage: Uses window.localStorage for persistent data (data remains even if the tab is closed).
-• Compatibility: Optimized for iOS Safari and Android Chrome "Add to Home Screen" functionality.
-• Privacy: This application does not collect, store, or transmit any personal data to external servers.
-🔧 Installation
+🕒 HB Clock In — Pro v2.1 (Cloud Edition)
+A professional-grade, cloud-synchronized time tracking utility. Designed with a high-end Glassmorphism aesthetic and powered by a real-time Bento Grid architecture.
+🚀 Pro v2.1 Cloud Features
+• Real-Time Multi-Device Sync: Log shifts on your iPhone and watch the dashboard update instantly on your laptop or tablet.
+• Secure Account Linking: Seamlessly upgrade an anonymous local session to a permanent cloud account using your email.
+• Persistent Cloud Sessions: The "Session Recovery" engine ensures your timer stays live even if you close the app, restart your device, or switch browsers.
+• Encrypted Sandbox Storage: Your logs, rates, and settings are stored in a secure, isolated cloud database (Firestore), ensuring maximum privacy and data durability.
+💎 Core Functionality
+• Dual-Timer System: Precision tracking for work and breaks with high-visibility "Neon" pulse alerts during break states.
+• Bento Grid Analytics: Real-time calculation of period earnings, net hours worked, and pay period progress.
+• Quick-Adjust Dashboard: Modify the start, end, or break duration of your last entry directly from the main view.
+• Professional Export: Generate detailed timesheet reports and launch them directly into your native email client.
+• Adaptive UI: Fully responsive design with an ultra-polished Dark/Light mode toggle.
+📖 How to Sync Across Devices
+1. Link Your Device
+Open the app on your primary device, tap the Account Icon (User silhouette), and enter an email and password to "Link Account." This secures your existing local data to the cloud.
+2. Connect Other Instances
+On your laptop or second phone, open the app, go to the Account menu, and select "Sign In Instead." Once logged in, your devices will act as identical mirrors of each other.
+3. Real-Time Operation
+If you "Clock In" on your phone, you can "Clock Out" or "Pause" from your laptop. The cloud acts as the single source of truth.
+🛠 Technical Specifications
+• Engine: React 18+ with real-time Firebase Firestore integration.
+• Authentication: Firebase Auth (Anonymous & Email/Password providers).
+• Deployment: Served via GitHub Pages.
+• Storage: Shift data is encrypted in transit and stored in user-specific partitions.
+🔧 Installation (Mobile)
 1. Navigate to the Live App Link.
 2. Tap the Share icon (iOS) or Menu icon (Android).
-3. Select "Add to Home Screen" for a full-screen, app-like experience.
+3. Select "Add to Home Screen" for a full-screen, native-app experience.
 Developed for professional efficiency. Version 2.1
