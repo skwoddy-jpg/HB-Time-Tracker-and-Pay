@@ -26,4 +26,4 @@ A high-performance, mobile-first time tracking utility designed for speed, preci
 1. Navigate to the Live App Link.
 2. Tap the Share icon (iOS) or Menu icon (Android).
 3. Select "Add to Home Screen" for a full-screen, app-like experience.
-Developed for professional efficiency. Version 1.6
+Developed for professional efficiency. Version 1.8
