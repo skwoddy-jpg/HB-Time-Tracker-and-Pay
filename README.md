@@ -1,4 +1,4 @@
-🕒 HB Clock In — Pro Edition
+(🕒 HB Clock In — Pro Edition
 A high-performance, mobile-first time tracking utility designed for speed, precision, and privacy. Built with a modern Glassmorphism aesthetic and Bento Grid architecture.
 🚀 Key Features
 • Dual-Timer System: Real-time tracking of both active work sessions and break durations with visual status indicators.
@@ -26,4 +26,4 @@ A high-performance, mobile-first time tracking utility designed for speed, preci
 1. Navigate to the Live App Link.
 2. Tap the Share icon (iOS) or Menu icon (Android).
 3. Select "Add to Home Screen" for a full-screen, app-like experience.
-Developed for professional efficiency. Version 1.8
+Developed for professional efficiency. Version 2.1
