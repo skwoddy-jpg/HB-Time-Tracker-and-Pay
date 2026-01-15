@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HB Clock in</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f3f4f6; --card: #ffffff; --text: #1f2937; --danger: #ef4444; --success: #059669; --warning: #f59e0b; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        
+        .main-title { font-size: 2.2rem; font-weight: 900; color: var(--primary); text-align: center; margin: 0; text-transform: uppercase; }
+        .timer-display { font-size: 3rem; font-weight: bold; text-align: center; margin: 15px 0; font-family: monospace; }
+        
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        button { padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; color: white; }
+        .btn-start { background: var(--success); grid-column: span 2; }
+        .btn-break { background: var(--warning); }
+        .btn-stop { background: var(--danger); }
+        
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; background: #eff6ff; padding: 10px; border-radius: 8px; border: 1px solid #dbeafe; }
+        .full-width { grid-column: span 2; }
+        label { font-size: 0.75rem; font-weight: bold; display: block; margin-bottom: 4px; color: #1e40af; }
+        input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 0.9rem; }
+
+        .summary-banner { background: var(--primary); color: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
+        .summary-val { font-size: 1.5rem; font-weight: bold; }
+
+        .entry-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .editable-hrs { width: 55px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-weight: bold; }
+        .history-title { font-size: 1.1rem; font-weight: bold; margin: 10px 0; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h1 class="main-title">HB Clock in</h1>
+        
+        <div class="settings-grid">
+            <div class="full-width">
+                <label>Hourly Rate (£)</label>
+                <input type="number" id="globalRate" value="12.00" step="0.01" onchange="saveConfig()">
+            </div>
+            <div>
+                <label>Period Start</label>
+                <input type="date" id="periodStart" onchange="saveConfig()">
+            </div>
+            <div>
+                <label>Period End</label>
+                <input type="date" id="periodEnd" onchange="saveConfig()">
+            </div>
+        </div>
+        
+        <div class="timer-display" id="display">00:00:00</div>
+        
+        <div class="controls">
+            <button id="startBtn" class="btn-start" onclick="startClock()">Clock In</button>
+            <button id="breakBtn" class="btn-break" onclick="toggleBreak()" style="display:none;">Break</button>
+            <button id="stopBtn" class="btn-stop" onclick="stopClock()" style="display:none;">Clock Out</button>
+        </div>
+    </div>
+
+    <div class="summary-banner">
+        <div style="font-size: 0.8rem; opacity: 0.9;">Current Period Total</div>
+        <div class="summary-val" id="periodTotalPay">£0.00</div>
+        <div id="periodTotalHours" style="font-size: 0.9rem;">0.00 hours</div>
+    </div>
+
+    <div class="card">
+        <div class="history-title">
+            <span>Shift Log</span>
+            <span style="font-size: 0.7rem; color: #666;">(Showing shifts in range)</span>
+        </div>
+        <div id="historyList"></div>
+    </div>
+</div>
+
+<script>
+    let startTime, timerInterval, elapsedPausedTime = 0, isPaused = false, pauseStart;
+
+    // Default Dates (Start of current month to end of current month)
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+    // Load Data
+    let allShifts = JSON.parse(localStorage.getItem('hb_shifts_v2')) || [];
+    let config = JSON.parse(localStorage.getItem('hb_config_v2')) || { 
+        rate: "12.00", 
+        start: firstDay, 
+        end: lastDay 
+    };
+
+    // Initialize UI
+    document.getElementById('globalRate').value = config.rate;
+    document.getElementById('periodStart').value = config.start;
+    document.getElementById('periodEnd').value = config.end;
+
+    function saveConfig() {
+        config.rate = document.getElementById('globalRate').value;
+        config.start = document.getElementById('periodStart').value;
+        config.end = document.getElementById('periodEnd').value;
+        localStorage.setItem('hb_config_v2', JSON.stringify(config));
+        updateView();
+    }
+
+    function updateView() {
+        const list = document.getElementById('historyList');
+        const totalPayEl = document.getElementById('periodTotalPay');
+        const totalHrsEl = document.getElementById('periodTotalHours');
+        list.innerHTML = '';
+        
+        let totalHrs = 0;
+        const startDate = new Date(config.start);
+        const endDate = new Date(config.end);
+        endDate.setHours(23, 59, 59); // Include the full end day
+
+        // Filter and sort shifts
+        const filteredShifts = allShifts.filter(shift => {
+            const sDate = new Date(shift.timestamp);
+            return sDate >= startDate && sDate <= endDate;
+        }).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        filteredShifts.forEach(shift => {
+            const originalIndex = allShifts.indexOf(shift);
+            totalHrs += parseFloat(shift.hours);
+            
+            const row = document.createElement('div');
+            row.className = 'entry-row';
+            row.innerHTML = `
+                <span>${new Date(shift.timestamp).toLocaleDateString('en-GB', {day:'2-digit', month:'short'})}</span>
+                <div>
+                    <input type="number" class="editable-hrs" value="${shift.hours}" onchange="editShift(${originalIndex}, this.value)">
+                    <button onclick="deleteShift(${originalIndex})" style="color:var(--danger); background:none; border:none; font-size:1.2rem; margin-left:10px;">✕</button>
+                </div>
+            `;
+            list.appendChild(row);
+        });
+
+        totalPayEl.textContent = `£${(totalHrs * config.rate).toFixed(2)}`;
+        totalHrsEl.textContent = `${totalHrs.toFixed(2)} hours`;
+    }
+
+    // --- Timer Logic ---
+    function startClock() {
+        startTime = Date.now() - elapsedPausedTime;
+        timerInterval = setInterval(updateDisplay, 1000);
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('breakBtn').style.display = 'inline-block';
+        document.getElementById('stopBtn').style.display = 'inline-block';
+    }
+
+    function toggleBreak() {
+        const btn = document.getElementById('breakBtn');
+        if (!isPaused) {
+            clearInterval(timerInterval);
+            pauseStart = Date.now();
+            isPaused = true;
+            btn.textContent = "Resume";
+            btn.style.background = "var(--success)";
+        } else {
+            elapsedPausedTime += (Date.now() - pauseStart);
+            startTime = Date.now() - (Date.now() - startTime); 
+            timerInterval = setInterval(updateDisplay, 1000);
+            isPaused = false;
+            btn.textContent = "Break";
+            btn.style.background = "var(--warning)";
+        }
+    }
+
+    function updateDisplay() {
+        let diff = Date.now() - startTime;
+        if (isPaused) diff = pauseStart - startTime;
+        let h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
+        document.getElementById('display').textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function stopClock() {
+        if(!confirm("Finish shift?")) return;
+        clearInterval(timerInterval);
+        let diff = isPaused ? (pauseStart - startTime) : (Date.now() - startTime);
+        allShifts.push({ timestamp: new Date().toISOString(), hours: (diff / 3600000).toFixed(2) });
+        
+        // Reset Timer UI
+        elapsedPausedTime = 0; isPaused = false;
+        document.getElementById('display').textContent = "00:00:00";
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('breakBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('breakBtn').textContent = "Break";
+        document.getElementById('breakBtn').style.background = "var(--warning)";
+        
+        saveAndReload();
+    }
+
+    function editShift(idx, val) { allShifts[idx].hours = val; saveAndReload(); }
+    function deleteShift(idx) { if(confirm("Delete this shift?")) { allShifts.splice(idx, 1); saveAndReload(); } }
+    function saveAndReload() { localStorage.setItem('hb_shifts_v2', JSON.stringify(allShifts)); updateView(); }
+
+    updateView();
+</script>
+</body>
+</html>
