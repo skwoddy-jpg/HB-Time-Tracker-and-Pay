@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HB Clock in</title>
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --primary: #6366f1;
+            --accent: #a855f7;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text);
+            padding: 15px;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .container { width: 100%; max-width: 500px; margin: 0 auto; }
+
+        /* Glass Pane Effect */
+        .pane {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .main-title { 
+            font-size: 2rem; font-weight: 800; text-align: center; margin: 0;
+            background: linear-gradient(to right, #4f46e5, #9333ea);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .timer-display { 
+            font-size: 3.5rem; font-weight: 800; text-align: center; margin: 10px 0; 
+            font-variant-numeric: tabular-nums; color: #1e1b4b;
+        }
+
+        /* Modern Controls */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        button { 
+            padding: 14px; border: none; border-radius: 14px; font-weight: 700; 
+            cursor: pointer; transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.96); }
+        .btn-start { background: #10b981; color: white; grid-column: span 2; }
+        .btn-break { background: #f59e0b; color: white; }
+        .btn-stop { background: #ef4444; color: white; }
+        .btn-save { background: var(--primary); color: white; width: 100%; margin-top: 10px; }
+
+        /* Inputs */
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #4f46e5; margin-left: 5px; }
+        input { 
+            width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1); 
+            background: rgba(255,255,255,0.5); font-weight: 600;
+        }
+
+        .badge {
+            background: var(--primary); color: white; padding: 2px 8px; 
+            border-radius: 10px; font-size: 0.7rem; float: right;
+        }
+
+        .archive-item {
+            background: rgba(255,255,255,0.3); border-radius: 12px; 
+            padding: 12px; margin-top: 10px; border: 1px solid var(--glass-border);
+        }
+
+        .shift-row { border-bottom: 1px solid rgba(0,0,0,0.05); padding: 10px 0; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="pane">
+        <h1 class="main-title">HB CLOCK IN</h1>
+        <p style="text-align: center; font-size: 0.8rem; margin: 0; color: #4338ca;">Modern Pay Tracker</p>
+        
+        <div class="timer-display" id="display">00:00:00</div>
+        
+        <div class="controls">
+            <button id="startBtn" class="btn-start" onclick="startClock()">Clock In</button>
+            <button id="breakBtn" class="btn-break" onclick="toggleBreak()" style="display:none;">Break</button>
+            <button id="stopBtn" class="btn-stop" onclick="stopClock()" style="display:none;">Clock Out</button>
+        </div>
+    </div>
+
+    <div class="pane">
+        <div class="settings-grid">
+            <div style="grid-column: span 2;">
+                <label>Hourly Rate (£)</label>
+                <input type="number" id="globalRate" value="12.00" step="0.01" onchange="saveConfig()">
+            </div>
+            <div>
+                <label>Start Date</label>
+                <input type="date" id="periodStart" onchange="saveConfig()">
+            </div>
+            <div>
+                <label>End Date</label>
+                <input type="date" id="periodEnd" onchange="saveConfig()">
+            </div>
+        </div>
+    </div>
+
+    <div class="pane">
+        <label>Period Name</label>
+        <input type="text" id="periodName" placeholder="e.g. March 2026 Main">
+        <button class="btn-save" onclick="archivePeriod()">Archive Current Period</button>
+        <p style="font-size: 0.7rem; text-align: center; margin-top: 8px; opacity: 0.7;">
+            Total Shifts in Filter: <span id="shiftCount">0</span>
+        </p>
+    </div>
+
+    <div id="historyList"></div>
+
+    <div class="pane">
+        <h3 style="margin-top:0">Archived Periods <span class="badge" id="archiveCount">0</span></h3>
+        <div id="archiveContainer"></div>
+    </div>
+</div>
+
+<script>
+    let startTime, timerInterval, elapsedPausedTime = 0, isPaused = false, pauseStart;
+    let allShifts = JSON.parse(localStorage.getItem('hb_shifts_v4')) || [];
+    let archives = JSON.parse(localStorage.getItem('hb_archives')) || [];
+    let config = JSON.parse(localStorage.getItem('hb_config_v4')) || { rate: "12.00", start: new Date().toISOString().split('T')[0], end: new Date().toISOString().split('T')[0] };
+
+    document.getElementById('globalRate').value = config.rate;
+    document.getElementById('periodStart').value = config.start;
+    document.getElementById('periodEnd').value = config.end;
+
+    function saveConfig() {
+        config.rate = document.getElementById('globalRate').value;
+        config.start = document.getElementById('periodStart').value;
+        config.end = document.getElementById('periodEnd').value;
+        localStorage.setItem('hb_config_v4', JSON.stringify(config));
+        updateView();
+    }
+
+    function archivePeriod() {
+        const name = document.getElementById('periodName').value || "Unnamed Period";
+        const filtered = allShifts.filter(s => {
+            const d = new Date(s.start);
+            return d >= new Date(config.start) && d <= new Date(config.end + 'T23:59:59');
+        });
+
+        if (filtered.length === 0) return alert("No shifts found in current date range to archive.");
+        
+        const totalHrs = filtered.reduce((acc, s) => acc + (new Date(s.end) - new Date(s.start) - (s.breakMs || 0))/3600000, 0);
+        
+        archives.push({
+            name: name,
+            range: `${config.start} to ${config.end}`,
+            totalPay: (totalHrs * config.rate).toFixed(2),
+            shiftCount: filtered.length
+        });
+
+        localStorage.setItem('hb_archives', JSON.stringify(archives));
+        document.getElementById('periodName').value = '';
+        updateView();
+    }
+
+    function updateView() {
+        const list = document.getElementById('historyList');
+        const countSpan = document.getElementById('shiftCount');
+        list.innerHTML = '';
+        
+        const filtered = allShifts.filter(s => {
+            const d = new Date(s.start);
+            return d >= new Date(config.start) && d <= new Date(config.end + 'T23:59:59');
+        }).sort((a,b) => new Date(b.start) - new Date(a.start));
+
+        countSpan.textContent = filtered.length;
+
+        filtered.forEach(shift => {
+            const idx = allShifts.indexOf(shift);
+            const hrs = (new Date(shift.end) - new Date(shift.start) - (shift.breakMs || 0)) / 3600000;
+            const pane = document.createElement('div');
+            pane.className = 'pane';
+            pane.style.padding = '12px';
+            pane.innerHTML = `
+                <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                    <span>${new Date(shift.start).toLocaleDateString('en-GB')}</span>
+                    <span style="color:#4f46e5">£${(hrs * config.rate).toFixed(2)}</span>
+                </div>
+                <div style="font-size:0.8rem; opacity:0.7;">${hrs.toFixed(2)} hrs worked</div>
+            `;
+            list.appendChild(pane);
+        });
+
+        // Update Archive View
+        const archContainer = document.getElementById('archiveContainer');
+        const archCount = document.getElementById('archiveCount');
+        archContainer.innerHTML = '';
+        archCount.textContent = archives.length;
+        
+        archives.slice().reverse().forEach((arch, i) => {
+            const div = document.createElement('div');
+            div.className = 'archive-item';
+            div.innerHTML = `
+                <div style="font-weight:bold;">${arch.name}</div>
+                <div style="font-size:0.75rem;">${arch.range} | ${arch.shiftCount} shifts</div>
+                <div style="color:var(--primary); font-weight:bold;">Total: £${arch.totalPay}</div>
+            `;
+            archContainer.appendChild(div);
+        });
+    }
+
+    // Timer Logic (Brief version)
+    function startClock() { startTime = new Date(); timerInterval = setInterval(updateDisplay, 1000); toggleUI(true); }
+    function toggleBreak() { if (!isPaused) { pauseStart = new Date(); isPaused = true; document.getElementById('breakBtn').textContent = "Resume"; } else { elapsedPausedTime += (new Date() - pauseStart); isPaused = false; document.getElementById('breakBtn').textContent = "Break"; } }
+    function stopClock() {
+        clearInterval(timerInterval);
+        const end = new Date();
+        let totalBreak = elapsedPausedTime + (isPaused ? (new Date() - pauseStart) : 0);
+        allShifts.push({ start: startTime.toISOString(), end: end.toISOString(), breakMs: totalBreak });
+        toggleUI(false); saveAndReload();
+    }
+    function updateDisplay() {
+        let diff = new Date() - startTime; if (isPaused) diff = pauseStart - startTime;
+        let h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
+        document.getElementById('display').textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+    function toggleUI(run) {
+        document.getElementById('startBtn').style.display = run ? 'none' : 'block';
+        document.getElementById('breakBtn').style.display = run ? 'inline-block' : 'none';
+        document.getElementById('stopBtn').style.display = run ? 'inline-block' : 'none';
+        if(!run) { document.getElementById('display').textContent = "00:00:00"; elapsedPausedTime = 0; isPaused = false; }
+    }
+    function saveAndReload() { localStorage.setItem('hb_shifts_v4', JSON.stringify(allShifts)); updateView(); }
+    updateView();
+</script>
+</body>
+</html>
